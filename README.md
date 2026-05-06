@@ -241,3 +241,4 @@ MIT
 ## Security
 
 Please do not commit your `.env` file or any sensitive credentials to version control (it is included in `.gitignore` as a safe default.)
+# xero-mcp — Deployed via Railway
