@@ -1,9 +1,8 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY tsconfig.json tsconfig.http.json ./
+COPY package.json package-lock.json tsconfig.json tsconfig.http.json ./
 COPY src/ ./src/
+RUN npm ci --ignore-scripts
 RUN npm run build
 
 FROM node:22-alpine AS runtime
