@@ -12,17 +12,43 @@ import { ToolFactory } from "./tools/tool-factory.js";
 
 const PORT = parseInt(process.env.PORT ?? "3000", 10);
 
+/**
+ * Bearer token auth guard.
+ * Protected routes: /mcp and / (all MCP tool access).
+ * Open route: /health (Railway probe).
+ * Token sourced from MCP_AUTH_TOKEN env var.
+ * Returns false and writes 401/503 if auth fails.
+ */
+function checkAuth(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const token = process.env.MCP_AUTH_TOKEN;
+  if (!token) {
+    // No token configured — deny all to prevent accidental open access
+    res.writeHead(503, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Service not configured: MCP_AUTH_TOKEN missing" }));
+    return false;
+  }
+  const authHeader = req.headers["authorization"] ?? "";
+  if (authHeader !== `Bearer ${token}`) {
+    res.writeHead(401, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ error: "Unauthorised" }));
+    return false;
+  }
+  return true;
+}
+
 const main = async () => {
   const httpServer = http.createServer(async (req, res) => {
-    // Health check (unauthenticated)
+    // Health check — unauthenticated (Railway probe)
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ status: "ok", transport: "sse", version: "0.0.16" }));
       return;
     }
 
-    // MCP endpoint — one server instance per SSE connection (stateless per session)
+    // MCP endpoint — bearer token required
     if (req.url === "/mcp" || req.url === "/") {
+      if (!checkAuth(req, res)) return;
+
       const server = XeroMcpServer.GetServer();
       ToolFactory(server);
 
